@@ -75,7 +75,7 @@ Field도 Query, Path, Body와 같이 동작하며, 같은 parameter를 가진다
 원래 두개 이상의 body parameter를 사용해야 JSON에 key가 표시되는데,  
 Body에서 embed=True로 하면 single body parameter라도 JSON에 key와 함께 표시된다.
 
-# Body - Nested Models
+## Body - Nested Models
 fastapi에서는 pydantic을 통해 중첩모델을 사용할 수 있다.
 ``` python
 from typing import Optional
@@ -158,3 +158,98 @@ app = FastAPI()
 async def create_index_weights(weights: Dict[int, float]):
     return weights
 ```
+
+# 2022-05-11
+## Declare Request Example Data
+앱에서 받을 수 있는 데이터의 예를 선언한다?
+방법이 몇가지 있다.
+1. Pydantic의 Chema_extra 이용  
+``` python
+class Item(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    tax: Optional[float] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": "Foo",
+                "description": "A very nice Item",
+                "price": 35.4,
+                "tax": 3.2,
+            }
+        }
+```
+선언된 extra info는 Json schema에 추가되어 API doc에 사용된다.  
+2. Field arguments 이용
+``` python
+class Item(BaseModel):
+    name: str = Field(..., example="Foo")
+    description: Optional[str] = Field(None, example="A very nice Item")
+    price: float = Field(..., example=35.4)
+    tax: Optional[float] = Field(None, example=3.2)
+```
+ 
+extra arguments는 오직 문서용으로, validation을 거치지 않는다.  
+3. example and examples in OpenAPI
+example과 examples는 Path(), Query(), Header(), Cookie(), Body(), Form()그리고 File()에 사용 가능하다.
+``` python
+@app.put("/items/{item_id}")
+async def update_item(
+    item_id: int,
+    item: Item = Body(
+        ...,
+        example={
+            "name": "Foo",
+            "description": "A very nice Item",
+            "price": 35.4,
+            "tax": 3.2,
+        },
+    ),
+):
+    results = {"item_id": item_id, "item": item}
+    return results
+```
+## Extra Data Types
+현재까지 아래 데이터 타입들을 사용해왔다.
+- int
+- float
+- str
+- bool
+하지만 더욱 복잡한 데이터들을 사용할 수 있으며, 그것들도 마찬가지로 동일한 기능들을 사용할 수 있다.
+- 에디터 서포트
+- Request를 의한 Data conversion
+- response data를 위한 Data conversion 
+- Data validation.
+- Automatic annotation and documentation.
+추가 데이터 타입들은 다음과 같다.
+- UUID
+  - 표준 "Universally Unique Identifier", 수많은 데이터베이스와 시스템에서 ID로 사용된다.
+  - request와 response에서 str로 표현된다.
+- datetime.datetime
+  - 파이썬의 datetime.datetime.
+  - request와 response에서 ISO 8601 포맷의 str로 표시된다.(예, 2008-09-15T15:53:00+05:00)
+- datetime.date
+  - 파이썬의 datetime.date
+  - request와 response에서 ISO 8601 포맷의 str로 표시된다.(예, 2008-09-15)
+- datetime.time
+  - 파이썬의 datetime.time
+  - request와 response에서 ISO 8601 포맷의 str로 표시된다.(예, 15:53:00.003)
+- datetime.timedelta
+  - 파이썬의 datetime.timedelta
+  - request와 response에서 총 seconds의 float으로 표시된다.
+  - pydantic 또한 "ISO 8601 diff encoding"으로 표시하는것을 허용한다.
+- frozenset
+  - requeset와 reponse에서 set으로 표시된다.
+    - request에서는 list로 읽은 후, 반복을 제거하여 set으로 converting 한다.
+    - reponse에서는 set이 list로 converting된다.
+    - 생산된 schema에서 set value는 unique하다고 기술한다(JSON schema의 uniqueItems)
+- bytes
+  - 파이썬의 bytes
+  - request와 response에서 str로 다뤄진다.
+  - 생성된 schema에선 binary "format"의 str임을 기술한다.
+- Decimal 
+  - 파이썬의 Decimal
+  - request와 response에서 float과 같게 다뤄진다.  
+pydantic data types은 여기서 볼 수 있다.[Pydantic data types](https://pydantic-docs.helpmanual.io/usage/types/).   
