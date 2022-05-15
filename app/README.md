@@ -253,3 +253,111 @@ async def update_item(
   - 파이썬의 Decimal
   - request와 response에서 float과 같게 다뤄진다.  
 pydantic data types은 여기서 볼 수 있다.[Pydantic data types](https://pydantic-docs.helpmanual.io/usage/types/).   
+
+# 22-05-14
+## Cokie Parameter
+Query나 Path 파라미터를 선언하는 것과 같은 방법으로 Cookie 파라미터를 선언할 수 있다.
+``` python
+from typing import Union
+
+from fastapi import Cookie, FastAPI
+
+app = FastAPI()
+
+
+@app.get("/items/")
+async def read_items(ads_id: Union[str, None] = Cookie(default=None)):
+    return {"ads_id": ads_id}
+```
+Cookie는 Path와 Query의 자매변수이다. 같은 Param class로부터 상속을 받는다.
+cookie 파라미터를 선언할때, Cookie를 사용하지 않으면 query로 해석한다.
+
+## 헤더 매개변수
+``` python
+rom typing import Optional
+
+from fastapi import FastAPI, Header
+
+app = FastAPI()
+
+
+@app.get("/items/")
+async def read_items(user_agent: Optional[str] = Header(default=None)):
+    return {"User-Agent": user_agent}
+```
+Header또한 Path, Query 및 Cookie와 마찬가지로 Param클래스로부터 상속받음  
+대부분의 표주 ㄴ헤더는 '-'로 구분된다. 하지만 python에서 '-'가 유효하지 않으므로, Header는 '_'에서 '-'로 변환하여 추출하고 기록한다.
+또한 HTTP 헤더는 대소문자를 구분하지 않으므로 'snake_case'로 선언할 수 있다.
+
+``` python
+from typing import List, Optional
+
+from fastapi import FastAPI, Header
+
+app = FastAPI()
+
+
+@app.get("/items/")
+async def read_items(x_token: Optional[List[str]] = Header(default=None)):
+    return {"X-Token values": x_token}
+```
+중복 헤더를 받을 수 있다. 중복헤더는 리스트 형태로 값을 수신한다.
+
+## Response Model
+모든 경로 작업에서 response_model 매개변수를 사용하여 응답에 사용되는 모델을 선언할 수 있다.
+- @app.get()
+- @app.post()
+- @app.put()
+- @app.delete()
+- etc.
+
+``` python
+from typing import List, Optional
+
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+
+class Item(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    tax: Optional[float] = None
+    tags: List[str] = []
+
+
+@app.post("/items/", response_model=Item)
+async def create_item(item: Item):
+    return item
+```
+
+응답 모델은 함수 반환 유형 주석 대신 이 매개변수에서 선언된다. 경로 함수는 실제로 해당 응답 모델을 반환하지 않고 dict, 데이터베이스 객체 또는 기타 모델을 반환한 다음 response_model을 사용하여 필드의 제한 및 직렬화를 수행하기 때문이다.
+``` python
+from typing import Optional
+
+from fastapi import FastAPI
+from pydantic import BaseModel, EmailStr
+
+app = FastAPI()
+
+
+class UserIn(BaseModel):
+    username: str
+    password: str
+    email: EmailStr
+    full_name: Optional[str] = None
+
+
+class UserOut(BaseModel):
+    username: str
+    email: EmailStr
+    full_name: Optional[str] = None
+
+
+@app.post("/user/", response_model=UserOut)
+async def create_user(user: UserIn):
+    return user
+```
+이런 방식으로 response_model의 type을 선언하여 데이터를 필터링 할 수 있다. 
